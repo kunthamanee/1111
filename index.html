@@ -23,60 +23,76 @@
 
   <script>
     const URL = "https://teachablemachine.withgoogle.com/models/klxDOYTDp/";
-    const mqttTopic = "ktmn"; // <<< ใช้ Topic นี้
+    const mqttTopic = "ktmn";
     let model, webcam, labelContainer, maxPredictions;
     let mqttClient = null;
 
     function connectMQTT() {
-      const options = {
-        clean: true,
-        connectTimeout: 4000,
-        clientId: 'clientId-Z0YKrWecQi' + Math.floor(Math.random() * 10000),
-      };
-      mqttClient = mqtt.connect("wss://broker.hivemq.com:8884/mqtt", options);
+      return new Promise((resolve, reject) => {
+        const options = {
+          clean: true,
+          connectTimeout: 4000,
+          clientId: 'clientId-Z0YKrWecQi' + Math.floor(Math.random() * 10000),
+        };
+        mqttClient = mqtt.connect("wss://broker.hivemq.com:8884/mqtt", options);
 
-      mqttClient.on("connect", () => {
-        console.log("Connected to MQTT broker");
-      });
+        mqttClient.on("connect", () => {
+          console.log("เชื่อมต่อ MQTT Broker สำเร็จ");
+          resolve();
+        });
 
-      mqttClient.on("error", err => {
-        console.error("MQTT connection error:", err);
+        mqttClient.on("error", err => {
+          console.error("ข้อผิดพลาดการเชื่อมต่อ MQTT:", err);
+          document.getElementById("label-container").innerText = "ข้อผิดพลาด MQTT: " + err.message;
+          reject(err);
+        });
+
+        mqttClient.on("close", () => {
+          console.log("การเชื่อมต่อ MQTT ถูกปิด");
+        });
       });
     }
 
     function publishMessage(message) {
       if (mqttClient && mqttClient.connected) {
-        mqttClient.publish(mqttTopic, message);
-        console.log("Published:", message);
+        mqttClient.publish(mqttTopic, message, { qos: 0 }, (err) => {
+          if (err) {
+            console.error("ข้อผิดพลาดการส่ง MQTT:", err);
+          } else {
+            console.log("ส่งข้อมูลไปยัง Topic", mqttTopic, ":", message);
+          }
+        });
       } else {
-        console.warn("MQTT not connected");
+        console.warn("MQTT ยังไม่เชื่อมต่อ");
+        document.getElementById("label-container").innerText = "ข้อผิดพลาด: MQTT ยังไม่เชื่อมต่อ";
       }
     }
 
     async function init(facingMode) {
-      const modelURL = URL + "model.json";
-      const metadataURL = URL + "metadata.json";
-
-      model = await tmImage.load(modelURL, metadataURL);
-      maxPredictions = model.getTotalClasses();
-
-      webcam = new tmImage.Webcam(224, 224, false);
       try {
+        await connectMQTT(); // รอการเชื่อมต่อ MQTT
+        const modelURL = URL + "model.json";
+        const metadataURL = URL + "metadata.json";
+
+        model = await tmImage.load(modelURL, metadataURL);
+        console.log("โหลดโมเดลสำเร็จ:", model);
+        maxPredictions = model.getTotalClasses();
+
+        webcam = new tmImage.Webcam(224, 224, false);
         await webcam.setup({ facingMode });
         await webcam.play();
         window.requestAnimationFrame(loop);
-      } catch (e) {
-        console.error("Webcam error:", e);
-        document.getElementById("label-container").innerText = "Error: " + e.message;
-        return;
-      }
 
-      document.getElementById("webcam-container").innerHTML = '';
-      document.getElementById("webcam-container").appendChild(webcam.canvas);
-      labelContainer = document.getElementById("label-container");
-      labelContainer.innerHTML = "";
-      for (let i = 0; i < maxPredictions; i++) {
-        labelContainer.appendChild(document.createElement("div"));
+        document.getElementById("webcam-container").innerHTML = '';
+        document.getElementById("webcam-container").appendChild(webcam.canvas);
+        labelContainer = document.getElementById("label-container");
+        labelContainer.innerHTML = "";
+        for (let i = 0; i < maxPredictions; i++) {
+          labelContainer.appendChild(document.createElement("div"));
+        }
+      } catch (e) {
+        console.error("ข้อผิดพลาด:", e);
+        document.getElementById("label-container").innerText = "ข้อผิดพลาด: " + e.message;
       }
     }
 
@@ -87,14 +103,25 @@
     }
 
     async function predict() {
-      const prediction = await model.predict(webcam.canvas);
-      let resultText = "";
-      for (let i = 0; i < maxPredictions; i++) {
-        const classPrediction = prediction[i].className + ": " + prediction[i].probability.toFixed(2);
-        labelContainer.childNodes[i].innerHTML = classPrediction;
-        resultText += classPrediction + "\n";
+      try {
+        const prediction = await model.predict(webcam.canvas);
+        let maxProb = 0;
+        let maxClass = "";
+        for (let i = 0; i < maxPredictions; i++) {
+          const classPrediction = prediction[i].className + ": " + prediction[i].probability.toFixed(2);
+          labelContainer.childNodes[i].innerHTML = classPrediction;
+          if (prediction[i].probability > maxProb) {
+            maxProb = prediction[i].probability;
+            maxClass = prediction[i].className;
+          }
+        }
+        // ส่งเฉพาะผลการทำนายที่มีความน่าจะเป็นสูงสุด
+        const message = maxClass + ": " + maxProb.toFixed(2);
+        publishMessage(message);
+      } catch (e) {
+        console.error("ข้อผิดพลาดในการทำนาย:", e);
+        document.getElementById("label-container").innerText = "ข้อผิดพลาดในการทำนาย: " + e.message;
       }
-      publishMessage(resultText);
     }
 
     function stop() {
@@ -103,9 +130,11 @@
         document.getElementById("webcam-container").innerHTML = '';
         document.getElementById("label-container").innerHTML = '';
       }
+      if (mqttClient && mqttClient.connected) {
+        mqttClient.end();
+        console.log("ปิดการเชื่อมต่อ MQTT");
+      }
     }
-
-    window.onload = connectMQTT;
   </script>
 </body>
 </html>
