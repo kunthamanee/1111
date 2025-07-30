@@ -1,94 +1,103 @@
-<!DOCTYPE html>  <html>    <head>        <title>Teachable Machine with MQTT</title>          <meta name="viewport" content="width=device-width, initial-scale=1.0" />        
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest"></script>        
-  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest"></script>        
-  <script src="https://unpkg.com/paho-mqtt/mqttws31.min.js"></script>        
-</head>        
-<body>        
-  <h3>Teachable Machine Image Model + MQTT (Mobile)</h3>        
-  <button onclick="init('environment')">Start (Back Camera)</button>        
-  <button onclick="init('user')">Start (Front Camera)</button>        
-  <button onclick="stop()">Stop</button>        
-  <div id="webcam-container"></div>        
-  <div id="label-container"></div>    <script type="text/javascript">        
-    const URL = "https://teachablemachine.withgoogle.com/models/klxDOYTDp/";        
-    let model, webcam, labelContainer, maxPredictions;        
-    let client, isConnected = false;        
-    let lastSent = "", lastSentTime = 0;    async function init(facingMode) {        
-  model = await tmImage.load(URL + "model.json", URL + "metadata.json");        
-  maxPredictions = model.getTotalClasses();      webcam = new tmImage.Webcam(224, 224, false);  
-await webcam.setup({ facingMode });  
-await webcam.play();  
-document.getElementById("webcam-container").appendChild(webcam.canvas);  
-window.requestAnimationFrame(loop);  labelContainer = document.getElementById("label-container");
-labelContainer.innerHTML = Array(maxPredictions).fill().map(() => "<div>").join("");
-
-mqttConnect();
-}
-
-async function loop() {
-webcam.update();
-await predict();
-window.requestAnimationFrame(loop);
-}
-
-async function predict() {
-const prediction = await model.predict(webcam.canvas);
-const topClass = prediction.reduce((max, p) => p.probability > max.probability ? p : max);
-
-prediction.forEach((p, i) => {
-labelContainer.childNodes[i].innerHTML = ${p.className}: ${p.probability.toFixed(2)};
-});
-
-if (topClass.probability > 0.8) {
-const now = Date.now();
-if (topClass.className !== lastSent || now - lastSentTime > 1000) {
-const msg = JSON.stringify({
-type: topClass.className,
-confidence: topClass.probability.toFixed(2)
-});
-sendMQTT(msg);
-lastSent = topClass.className;
-lastSentTime = now;
-}
-}
-}
-
-function stop() {
-if (webcam) {
-webcam.stop();
-document.getElementById("webcam-container").innerHTML = "";
-document.getElementById("label-container").innerHTML = "";
-}
-}
-
-function mqttConnect() {
-const clientId = "web_" + Math.floor(Math.random() * 10000);
-client = new Paho.MQTT.Client("broker.hivemq.com", 8884, clientId);
-client.connect({
-useSSL: true,
-onSuccess: () => {
-console.log("Connected to MQTT broker");
-isConnected = true;
-},
-onFailure: (e) => {
-console.error("MQTT connection failed:", e.errorMessage);
-isConnected = false;
-}
-});
-}
-
-function sendMQTT(message) {
-if (client && isConnected) {
-const topic = "ktmn";
-const msg = new Paho.MQTT.Message(message);
-msg.destinationName = topic;
-client.send(msg);
-console.log("MQTT message sent:", message);
-} else {
-console.warn("MQTT not connected. Message not sent:", message);
-}
-}
-
-</script>  </body>
-
-</html>        
+<!DOCTYPE html>  
+<html>  
+<head>  
+  <title>Teachable Machine with MQTT</title>  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />  
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest"></script>  
+  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest"></script>  
+  <script src="https://unpkg.com/paho-mqtt/mqttws31.min.js"></script>  
+</head>  
+<body>  
+  <h3>Teachable Machine Image Model + MQTT (Mobile)</h3>  
+  <button onclick="init('environment')">Start (Back Camera)</button>  
+  <button onclick="init('user')">Start (Front Camera)</button>  
+  <button onclick="stop()">Stop</button>  
+  <div id="webcam-container"></div>  
+  <div id="label-container"></div>    <script type="text/javascript">  
+    const URL = "https://teachablemachine.withgoogle.com/models/klxDOYTDp/";  
+    let model, webcam, labelContainer, maxPredictions;  
+    let client, isConnected = false;  
+    let lastSent = "", lastSentTime = 0;  
+  
+    async function init(facingMode) {  
+      model = await tmImage.load(URL + "model.json", URL + "metadata.json");  
+      maxPredictions = model.getTotalClasses();  
+  
+      webcam = new tmImage.Webcam(224, 224, false);  
+      await webcam.setup({ facingMode });  
+      await webcam.play();  
+      document.getElementById("webcam-container").appendChild(webcam.canvas);  
+      window.requestAnimationFrame(loop);  
+  
+      labelContainer = document.getElementById("label-container");  
+      labelContainer.innerHTML = Array(maxPredictions).fill().map(() => "<div>").join("");  
+  
+      mqttConnect();  
+    }  
+  
+    async function loop() {  
+      webcam.update();  
+      await predict();  
+      window.requestAnimationFrame(loop);  
+    }  
+  
+    async function predict() {  
+      const prediction = await model.predict(webcam.canvas);  
+      const topClass = prediction.reduce((max, p) => p.probability > max.probability ? p : max);  
+  
+      prediction.forEach((p, i) => {  
+        labelContainer.childNodes[i].innerHTML = `${p.className}: ${p.probability.toFixed(2)}`;  
+      });  
+  
+      if (topClass.probability > 0.8) {  
+        const now = Date.now();  
+        if (topClass.className !== lastSent || now - lastSentTime > 1000) {  
+          const msg = JSON.stringify({  
+            type: topClass.className,  
+            confidence: topClass.probability.toFixed(2)  
+          });  
+          sendMQTT(msg);  
+          lastSent = topClass.className;  
+          lastSentTime = now;  
+        }  
+      }  
+    }  
+  
+    function stop() {  
+      if (webcam) {  
+        webcam.stop();  
+        document.getElementById("webcam-container").innerHTML = "";  
+        document.getElementById("label-container").innerHTML = "";  
+      }  
+    }  
+  
+    function mqttConnect() {  
+      const clientId = "web_" + Math.floor(Math.random() * 10000);  
+      client = new Paho.MQTT.Client("broker.hivemq.com", 8884, clientId);  
+      client.connect({  
+        useSSL: true,  
+        onSuccess: () => {  
+          console.log("Connected to MQTT broker");  
+          isConnected = true;  
+        },  
+        onFailure: (e) => {  
+          console.error("MQTT connection failed:", e.errorMessage);  
+          isConnected = false;  
+        }  
+      });  
+    }  
+  
+    function sendMQTT(message) {  
+      if (client && isConnected) {  
+        const topic = "ktmn";  
+        const msg = new Paho.MQTT.Message(message);  
+        msg.destinationName = topic;  
+        client.send(msg);  
+        console.log("MQTT message sent:", message);  
+      } else {  
+        console.warn("MQTT not connected. Message not sent:", message);  
+      }  
+    }  
+  </script>  
+</body>  
+</html>  
