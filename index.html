@@ -156,6 +156,51 @@
                 console.log("MQTT sent:", className);
                 updateStatus(`ส่งแล้ว: ${className}`, "success");
               } else {
-                updateStatus
+                updateStatus("MQTT ไม่ได้เชื่อมต่อ", "error");
+              }
+            } catch (error) {
+              updateStatus("ส่ง MQTT ล้มเหลว: " + error.message, "error");
+            } finally {
+              sending = false;
+              paused = false;
+              setTimeout(() => {
+                if (isRunning) updateStatus("กำลังตรวจจับ...", "success");
+              }, 1000);
+            }
+          }, 5000); // 5 วินาทีก่อนส่ง
+          break;
+        }
+      }
+    }
+
+    function stop() {
+      isRunning = false;
+      paused = false;
+      sending = false;
+      if (timeoutId) clearTimeout(timeoutId);
+
+      if (webcam) {
+        try { webcam.stop(); } catch (e) {}
+        webcam = null;
+      }
+
+      document.getElementById("webcam-container").innerHTML = '';
+      document.getElementById("label-container").innerHTML = '';
+
+      if (mqttClient && mqttClient.isConnected()) {
+        try { mqttClient.disconnect(); } catch (e) {}
+        mqttClient = null;
+      }
+
+      updateStatus("หยุดการทำงานแล้ว", "status");
+    }
+
+    window.addEventListener('beforeunload', function() {
+      stop();
+    });
+  </script>
+</body>
+</html>
+
 
 
