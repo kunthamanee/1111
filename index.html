@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Teachable Machine + MQTT (wss 8884)</title>
+  <title>Teachable Machine + MQTT (wss 8000)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest"></script>
   <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest"></script>
@@ -19,7 +19,7 @@
   </style>
 </head>
 <body>
-  <h2>Teachable Machine + MQTT (Secure 8884)</h2>
+  <h2>Teachable Machine + MQTT (Secure WSS: 8000)</h2>
   <button onclick="init('environment')">Start (Back Camera)</button>
   <button onclick="init('user')">Start (Front Camera)</button>
   <button onclick="stop()">Stop</button>
@@ -49,7 +49,7 @@
       return new Promise((resolve, reject) => {
         try {
           const clientId = "web_" + Math.floor(Math.random() * 10000);
-          mqttClient = new Paho.MQTT.Client("broker.hivemq.com", 8884, "/mqtt", clientId);
+          mqttClient = new Paho.MQTT.Client("broker.hivemq.com", 8000, "/mqtt", clientId);
 
           mqttClient.onConnectionLost = (responseObject) => {
             console.error("MQTT lost:", responseObject.errorMessage);
@@ -210,3 +210,4 @@
   </script>
 </body>
 </html>
+
