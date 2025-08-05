@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Teachable Machine + MQTT (wss 8000)</title>
+  <title>Teachable Machine + MQTT (WS 8000)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest"></script>
   <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest"></script>
@@ -19,7 +19,7 @@
   </style>
 </head>
 <body>
-  <h2>Teachable Machine + MQTT (Secure WSS: 8000)</h2>
+  <h2>Teachable Machine + MQTT (WS: 8000)</h2>
   <button onclick="init('environment')">Start (Back Camera)</button>
   <button onclick="init('user')">Start (Front Camera)</button>
   <button onclick="stop()">Stop</button>
@@ -60,7 +60,7 @@
           };
 
           mqttClient.connect({
-            useSSL: true,
+            useSSL: false,
             timeout: 30,
             keepAliveInterval: 60,
             cleanSession: true,
@@ -77,7 +77,7 @@
           });
         } catch (error) {
           console.error("MQTT setup error:", error);
-          updateStatus("MQTT setup error: " + error.message, "error");
+          updateStatus("MQTT setup error: " + (error?.message || JSON.stringify(error)), "error");
           reject(error);
         }
       });
@@ -107,7 +107,7 @@
           } else if (error.name === "NotFoundError") {
             updateStatus("ไม่พบกล้องที่ระบุ", "error");
           } else {
-            updateStatus("ไม่สามารถเปิดกล้องได้: " + error.message, "error");
+            updateStatus("ไม่สามารถเปิดกล้องได้: " + (error?.message || JSON.stringify(error)), "error");
           }
           throw error;
         }
@@ -125,7 +125,7 @@
 
       } catch (error) {
         console.error("Init error:", error);
-        updateStatus("Error: " + error.message, "error");
+        updateStatus("Error: " + (error?.message || JSON.stringify(error)), "error");
         isRunning = false;
       }
     }
@@ -136,7 +136,7 @@
           webcam.update();
           await predict();
         } catch (error) {
-          updateStatus("Prediction error: " + error.message, "error");
+          updateStatus("Prediction error: " + (error?.message || JSON.stringify(error)), "error");
         }
       }
       if (isRunning) {
@@ -170,7 +170,7 @@
                 updateStatus("MQTT ไม่ได้เชื่อมต่อ", "error");
               }
             } catch (error) {
-              updateStatus("ส่ง MQTT ล้มเหลว: " + error.message, "error");
+              updateStatus("ส่ง MQTT ล้มเหลว: " + (error?.message || JSON.stringify(error)), "error");
             } finally {
               sending = false;
               paused = false;
@@ -210,4 +210,3 @@
   </script>
 </body>
 </html>
-
